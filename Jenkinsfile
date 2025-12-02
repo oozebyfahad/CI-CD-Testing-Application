@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // You can rename these if you want
         APP_IMAGE      = "ci-cd-testing-app:latest"
         SELENIUM_IMAGE = "ci-cd-testing-app-selenium:latest"
         APP_CONTAINER  = "ci-cd-testing-app-container"
@@ -10,66 +9,79 @@ pipeline {
     }
 
     stages {
+
+        /* ---------------------------
+              CHECKOUT STAGE
+        ---------------------------- */
         stage('Checkout') {
             steps {
-                // Use the same repo Jenkins pulled the Jenkinsfile from
                 checkout scm
             }
         }
 
+        /* ---------------------------
+              CODE LINTING
+        ---------------------------- */
         stage('Code Linting') {
-    steps {
-        echo "Running code linting..."
-        sh '''
-        python3 -m pip install --upgrade pip
-        pip3 install flake8
-        flake8 app || true
-        '''
-    }
-}
+            steps {
+                echo "Running code linting..."
+                sh '''
+                    python3 -m pip install --upgrade pip
+                    pip3 install flake8
+                    flake8 app || true
+                '''
+            }
+        }
 
+        /* ---------------------------
+              CODE BUILD
+        ---------------------------- */
+        stage('Code Build') {
+            steps {
+                echo "Building application (installing dependencies)..."
+                sh '''
+                    pip3 install -r app/requirements.txt
+                    python3 -m compileall app
+                '''
+            }
+        }
 
-       stage('Code Build') {
-    steps {
-        echo "Building application (installing deps)..."
-        sh '''
-        pip3 install -r app/requirements.txt
-        python3 -m compileall app
-        '''
-    }
-}
+        /* ---------------------------
+              UNIT TESTING
+        ---------------------------- */
+        stage('Unit Testing') {
+            steps {
+                echo "Running unit tests..."
+                sh '''
+                    pip3 install pytest
+                    pytest -q tests/unit
+                '''
+            }
+        }
 
-
-       stage('Unit Testing') {
-    steps {
-        echo "Running unit tests..."
-        sh '''
-        pip3 install pytest
-        pytest -q tests/unit
-        '''
-    }
-}
-
-
+        /* ---------------------------
+          DOCKER BUILD + DEPLOYMENT
+        ---------------------------- */
         stage('Containerized Deployment') {
             steps {
                 script {
+
                     echo "Building Docker image for app..."
                     sh '''
-                    docker build -t "$APP_IMAGE" -f Dockerfile .
+                        docker build -t "$APP_IMAGE" -f Dockerfile .
                     '''
 
                     echo "Stopping old container if running..."
                     sh '''
-                    if [ "$(docker ps -q -f name=$APP_CONTAINER)" ]; then
-                      docker stop "$APP_CONTAINER"
-                      docker rm "$APP_CONTAINER"
-                    fi
+                        if [ "$(docker ps -q -f name=$APP_CONTAINER)" ]; then
+                            docker stop "$APP_CONTAINER"
+                            docker rm "$APP_CONTAINER"
+                        fi
                     '''
 
-                    echo "Running app container..."
+                    echo "Running new app container..."
                     sh '''
-                    docker run -d --name "$APP_CONTAINER" -p "$APP_PORT":5000 "$APP_IMAGE"
+                        docker run -d --name "$APP_CONTAINER" -p "$APP_PORT":5000 "$APP_IMAGE"
                     '''
 
                     echo "Waiting for app to start..."
@@ -78,41 +90,50 @@ pipeline {
             }
         }
 
+        /* ---------------------------
+              SELENIUM TESTING
+        ---------------------------- */
         stage('Selenium Testing') {
             steps {
                 script {
+
                     echo "Building Selenium test image..."
                     sh '''
-                    docker build -t "$SELENIUM_IMAGE" -f Dockerfile.selenium .
+                        docker build -t "$SELENIUM_IMAGE" -f Dockerfile.selenium .
                     '''
 
-                    echo "Running Selenium tests container..."
+                    echo "Running Selenium container tests..."
                     sh '''
-                    docker run --rm \
-                       --network host \
-                       -e APP_URL=http://localhost:"$APP_PORT" \
-                       "$SELENIUM_IMAGE"
+                        docker run --rm \
+                            --network host \
+                            -e APP_URL=http://localhost:"$APP_PORT" \
+                            "$SELENIUM_IMAGE"
                     '''
                 }
             }
         }
     }
 
+    /* ---------------------------
+         POST PIPELINE ACTIONS
+    ---------------------------- */
     post {
         always {
-            echo "Cleaning up containers..."
+            echo "Cleaning up leftover containers..."
             sh '''
-            if [ "$(docker ps -q -f name=$APP_CONTAINER)" ]; then
-              docker stop "$APP_CONTAINER"
-              docker rm "$APP_CONTAINER"
-            fi
+                if [ "$(docker ps -q -f name=$APP_CONTAINER)" ]; then
+                    docker stop "$APP_CONTAINER"
+                    docker rm "$APP_CONTAINER"
+                fi
             '''
         }
+
         success {
             echo "Pipeline succeeded 🎉"
         }
+
         failure {
-            echo "Pipeline failed 💥 — check logs in each stage."
+            echo "Pipeline failed 💥 — check logs for details."
         }
     }
 }
