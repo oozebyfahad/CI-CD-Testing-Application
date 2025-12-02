@@ -18,35 +18,38 @@ pipeline {
         }
 
         stage('Code Linting') {
-            steps {
-                echo "Running code linting..."
-                sh '''
-                pip install --upgrade pip
-                pip install flake8
-                flake8 app || true
-                '''
-            }
-        }
+    steps {
+        echo "Running code linting..."
+        sh '''
+        python3 -m pip install --upgrade pip
+        pip3 install flake8
+        flake8 app || true
+        '''
+    }
+}
 
-        stage('Code Build') {
-            steps {
-                echo "Building application (installing deps)..."
-                sh '''
-                pip install -r app/requirements.txt
-                python -m compileall app
-                '''
-            }
-        }
 
-        stage('Unit Testing') {
-            steps {
-                echo "Running unit tests..."
-                sh '''
-                pip install pytest
-                pytest -q tests/unit
-                '''
-            }
-        }
+       stage('Code Build') {
+    steps {
+        echo "Building application (installing deps)..."
+        sh '''
+        pip3 install -r app/requirements.txt
+        python3 -m compileall app
+        '''
+    }
+}
+
+
+       stage('Unit Testing') {
+    steps {
+        echo "Running unit tests..."
+        sh '''
+        pip3 install pytest
+        pytest -q tests/unit
+        '''
+    }
+}
+
 
         stage('Containerized Deployment') {
             steps {
