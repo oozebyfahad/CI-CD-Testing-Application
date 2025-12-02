@@ -56,7 +56,7 @@ pipeline {
                     """
 
                     // Stop and remove any old container
-                    sh """
+                    sh '''
                     if [ "$(docker ps -q -f name=${APP_CONTAINER})" ]; then
                       docker stop ${APP_CONTAINER}
                       docker rm ${APP_CONTAINER}
