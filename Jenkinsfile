@@ -26,9 +26,11 @@ pipeline {
             steps {
                 echo "Running code linting..."
                 sh '''
-                    python3 -m pip install --upgrade pip
-                    pip3 install flake8
-                    flake8 app || true
+                    # Install flake8 for the Jenkins user only
+                    python3 -m pip install --user flake8
+
+                    # Run linting via python module so PATH issues don't matter
+                    python3 -m flake8 app || true
                 '''
             }
         }
@@ -40,7 +42,10 @@ pipeline {
             steps {
                 echo "Building application (installing dependencies)..."
                 sh '''
-                    pip3 install -r app/requirements.txt
+                    # Install app dependencies for the Jenkins user only
+                    python3 -m pip install --user -r app/requirements.txt
+
+                    # Byte-compile Python files
                     python3 -m compileall app
                 '''
             }
@@ -53,8 +58,11 @@ pipeline {
             steps {
                 echo "Running unit tests..."
                 sh '''
-                    pip3 install pytest
-                    pytest -q tests/unit
+                    # Install pytest for the Jenkins user only
+                    python3 -m pip install --user pytest
+
+                    # Run unit tests
+                    python3 -m pytest -q tests/unit
                 '''
             }
         }
