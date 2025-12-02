@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+# Install system deps
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    gnupg \
+    unzip \
+    chromium \
+    chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tests
+
+# Copy only selenium tests and requirements
+COPY tests/selenium/ ./selenium/
+COPY tests/selenium/requirements.txt ./requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+ENV DISPLAY=:99
+
+CMD ["python", "-m", "unittest", "discover", "-s", "selenium", "-p", "test_*.py"]
